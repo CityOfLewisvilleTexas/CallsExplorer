@@ -1,0 +1,2296 @@
+<!DOCTYPE html>
+<html>
+<head>
+
+    <meta charset="utf-8">
+    <meta name="viewport" content="initial-scale=1, maximum-scale=1,user-scalable=no">
+
+    <title>Call Explorer</title>
+    <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png">
+    <link rel="mask-icon" href="safari-pinned-tab.svg" color="#5bbad5">
+    <meta name="msapplication-TileColor" content="#603cba">
+    <meta name="theme-color" content="#ffffff">
+
+    <!--Bootstrap-->
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.2.1/css/bootstrap.min.css" integrity="sha384-GJzZqFGwb1QTTN6wy59ffF1BuGJpLSa9DkKMp0DgiMDm4iYMj70gZWKYbI706tWS" crossorigin="anonymous">
+
+    <style>  
+       html{height:100%;overflow:hidden;}
+
+       .parameters-container{font-size:0.85em; color:white; width:100%;}
+       .parameters-container td{padding-top: 10px; padding-bottom: 10px;border:none;border-top:solid 1px darkgray; border-bottom:solid 1pz darkgray;}
+       .parameters-container td:first-child{padding-right:10px; font-weight: bold; width: 185px;} 
+       .parameters-section-title > td{background:#2125299c;}
+       .parameters-section-title1{font-size:1.2em; color: White;}
+       .parameters-section-title2{font-size:0.8em;padding-bottom:10px; font-weight: normal;}
+
+       .fromTo {width:110px;padding-top:5px;padding-bottom:5px;}   
+       .fromToDate{width:110px;}
+
+       .singleValue {width:98%;padding-top:5px;padding-bottom:5px;}
+
+       select[multiple]{height:100px !important; font-size:0.9em;}
+
+       table.results{width: 100%; border-collapse: collapse; font-size: 0.7em;background:white;}
+
+       th {font-weight: bold; }
+       td {padding:7px 4px; }
+       th {padding:10px 4px;}
+       td, th { border: 1px solid #ccc; text-align: left; }
+
+       .btn-link{padding:0px;border:0;font-size:0.9em;}
+       .bg-warning-light{background-color:#ffc10730;}
+       .noLB{border-left:none;}
+       .noRB{border-right:none;}
+       .noLRB{border-left:none;border-right:none;}
+       .clearVals{padding:0px;border:0;}
+       .exampleTxt{float: right; padding-top: 7px; color: gainsboro;}
+       
+       .hl{background:#007bff;color:white;}
+
+    </style>
+
+    <style>
+        #viewDiv {
+            padding: 0;
+            margin: 0;
+            height: 700px;
+            width: 100%;
+        }        
+    </style>
+
+        
+    <!--DateJS-->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/datejs/1.0/date.min.js"></script>
+
+    <!--VueJS-->
+    <script src="https://unpkg.com/vue/dist/vue.js"></script>
+    
+    <!-- axios -->
+    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+
+    <!--ArcGIS-->
+    <link rel="stylesheet" href="https://js.arcgis.com/4.10/esri/css/main.css">   
+    <script src="https://js.arcgis.com/4.10/"></script>
+</head>
+
+<body>
+
+    <div id="app" class="container-fluid h-100" style="padding-left:0;padding-right:0;">
+        
+        <nav id="topNav" class="navbar navbar-dark bg-dark">
+            <a class="navbar-brand" href="#">Calls Explorer</a> 
+            <form class="form-inline">
+                <button v-on:click="showLink = !showLink" class="btn btn-outline-primary my-2 my-sm-0" type="button">Get Link</button>
+                <button v-on:click="showParams = true" v-show="showParams==false" class="btn btn-outline-primary my-2 my-sm-0" type="button">Show Params</button>
+            </form>
+        </nav>
+
+        <div class="row h-100" style="margin-left:0;">
+
+            <!--Url with parameter values-->
+            <div class="col-md-12" v-show="showLink == true">
+                <br>
+                <div class="alert alert-warning alert-dismissible show" role="alert">
+                    <strong>Url: </strong> <input type="text" style="width:100%;background:transparent;border:none;font-size:0.8em;" v-bind:value="setUrlParams()"/>
+                    <button type="button" class="close" data-dismiss="alert" aria-label="Close" v-on:click="showLink = false">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+            </div>
+
+        <!--..........................-->
+        <!--Parameters -->
+        <!--..........................-->
+            <div class="col-md-3 bg-secondary border-right" v-show="showParams==true">
+
+                <!--Title / Controls-->
+                <div class="row">
+                    <div class="col-md-12 text-white border-bottom">
+                        <h5 class="float-left" style="margin-top:20px;">Parameters</h5>                        
+                        <button 
+                            type="button" class="btn btn-outline-dark btn-sm float-right" 
+                            style="margin-top:10px; font-weight:bolder;"
+                             v-on:click="showParams=!showParams" 
+                             title="Close parameter panel"
+                             ><<
+                        </button>
+                    </div>
+                    <div class="col-md-12">
+                        <br>
+                        <button type="button" class="btn btn-danger" v-on:click="runReport()">Run Report</button>
+                        <button type="button" class="btn btn-secondary float-right" v-on:click="resetAllParameters()">Reset</button>                        
+                        <br><br>
+                    </div>   
+                </div>
+
+                <!--Parameters-->
+                <div class="row" style="padding-right:0; height:calc(100vh - 180px); overflow-y:scroll; overflow-x:hidden;">
+                    <div class="col-md-12">
+
+                        <table class="parameters-container">
+                            <tbody>
+                                <template v-for="section in paramSections">
+                                    <tr class="parameters-section-title">
+                                        <td colspan="2">
+                                            <span class="parameters-section-title1">{{section.title1}}</span>
+                                            <br>
+                                            <span class="parameters-section-title2">{{section.title2}}</span>
+                                        </td>
+                                    </tr>
+                                    
+                                    <tr v-for="param in parametersArrayFiltered(section.name)">
+
+                                        <td>
+                                            {{param.settings.label1}}
+
+                                            <!--Label2 ?-->
+                                            <div v-if="param.settings.type != 'boolean'">
+                                                <small style="color:whitesmoke;"><i>{{param.settings.label2}}</i></small>
+                                            </div>
+
+                                            <!--Special map layer for this parameter?-->
+                                            <div v-if="param.settings.hasOwnProperty('mapService')">
+                                                <small style="color:gold;">*Map will include a special layer</small>
+                                            </div>
+
+                                            <!--Include Opposite Parameter ?-->
+                                            <div v-if="param.settings.hasOwnProperty('oppositeParameter')">
+                                                <div>
+                                                    <div class="custom-control custom-checkbox">
+                                                        <input 
+                                                            type="checkbox" 
+                                                            class="custom-control-input" 
+                                                            v-bind:id="'customCheckOpposite'+param.name" 
+                                                            v-model="parameters[param.name].oppositeParameter.include"
+                                                            v-bind:disabled="(parameters[param.name].hasOwnProperty('selected') ? parameters[param.name].selected.length == 0 : parameters[param.name].value.length == 0)"
+                                                            >
+                                                        <label 
+                                                            class="custom-control-label" 
+                                                            style="color:gainsboro;font-size:0.7em;padding-top:3px;" 
+                                                            v-bind:for="'customCheckOpposite'+param.name"
+                                                            >Include Count of Opposite Results?
+                                                        </label>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </td>
+
+                                        <td>
+                                            <!--````````````````````````````````````-->
+                                            <!--CSV-->
+                                            <!--````````````````````````````````````-->
+                                            <div v-if="param.settings.type == 'csv'">
+                                                <input type="text" class="singleValue" v-model="parameters[param.name].value"/>
+                                                <button type="button" class="btn btn-link text-white clearVals" v-on:click="resetMultipleChoice(param.name)">Clear</button>
+                                            </div>
+
+                                            <!--````````````````````````````````````-->
+                                            <!--Text-->
+                                            <!--````````````````````````````````````-->
+                                            <div v-if="param.settings.type == 'text'">
+                                                <input type="text" class="singleValue" v-model="parameters[param.name].value"/>
+                                                <button type="button" class="btn btn-link text-white clearVals" v-on:click="parameters[param.name].value = []">Clear</button>
+                                            </div>
+                                            
+                                            <!--````````````````````````````````````-->
+                                            <!--MultiSelect-->
+                                            <!--````````````````````````````````````-->
+                                            <div v-if="param.settings.type == 'multiselect'">
+                                                <select class="custom-select" v-model="parameters[param.name].value" multiple>
+                                                    <option class="ms" v-for="option in parameters[param.name].options" v-bind:value="option.code">{{option.code + (option.description.length > 0 ? " | " + option.description : "")}}</option>
+                                                </select>
+                                                <button type="button" class="btn btn-link text-white clearVals" v-on:click="resetMultipleChoice(param.name)">Clear</button>
+                                                <div v-if="parameters[param.name].value.length > 0">{{parameters[param.name].value}}</div>
+                                            </div>
+                                                   
+                                            <!--````````````````````````````````````-->
+                                            <!--From-To-->
+                                            <!--````````````````````````````````````-->
+                                            <div v-if="param.settings.loHi == true">
+                                                <input v-bind:type="(param.settings.type == 'integer' ? 'number' : 'text')" class="fromTo text-center" v-model="parameters[param.name.replace(right(param.name,2),'Lo')].value"/>
+                                                to
+                                                <input v-bind:type="(param.settings.type == 'integer' ? 'number' : 'text')" class="fromTo text-center" v-model="parameters[param.name.replace(right(param.name,2),'Hi')].value"/>
+                                                <button type="button" class="btn btn-link text-white clearVals" 
+                                                    v-on:click="resetFromTo(param.name.replace(right(param.name,2),'Lo'),param.name.replace(right(param.name,2),'Hi'))"
+                                                    >Clear</button>
+                                            </div>
+
+                                            <!--````````````````````````````````````-->
+                                            <!--Boolean-->
+                                            <!--````````````````````````````````````-->
+                                            <div v-if="param.settings.type == 'boolean'">
+                                                <div class="custom-control custom-checkbox">
+                                                    <input 
+                                                        type="checkbox" 
+                                                        class="custom-control-input" 
+                                                        v-bind:id="'customCheck'+param.name" 
+                                                        v-model="parameters[param.name].value"
+                                                        v-on:change="(param.name.substr(0,15)=='AC_DateReceived' ? resetDateParams(param.name,parameters[param.name].value) : '')"                                                            
+                                                        >
+                                                    <label 
+                                                        class="custom-control-label" 
+                                                        style="color:gainsboro;font-size:0.8em;padding-top:3px;" 
+                                                        v-bind:for="'customCheck'+param.name"
+                                                        >{{param.settings.label2}}
+                                                    </label>
+                                                </div>
+                                            </div>  
+
+                                        </td>
+                                    </tr>
+                                </template>
+                            </tbody>
+                        </table>
+                        <br>
+                        <br>
+                    </div>  
+                </div>
+            </div>
+        
+        <!--................................-->
+        <!-- center content -->
+        <!--................................-->
+            <div class="bg-light" v-bind:class="{'col-md-12':showParams==false,'col-md-9':showParams==true}">
+
+                <!-- main content -->
+                <div class="row" style="margin-right:0px;height:calc(100vh - 80px); overflow:hidden;">
+                    
+                    <div class="col-md-12">
+                        <br> 
+
+                        <!--Your Query-->
+                        <div class="row">
+                            <div class="col-md-12">
+                                <small>
+                                    Your Query:<br>
+                                    <span style="font-family: 'Courier New', Courier, monospace" v-if="paramsPretty.length > 0">{{paramsPretty}}</span>
+                                    <span style="font-family: 'Courier New', Courier, monospace" v-if="paramsPretty.length== 0">Select your parameters</span>
+                                </small>
+                                <br><br>
+                            </div>
+                        </div>
+
+                        <!--Table or Map Buttons-->
+                        <div class="row">
+                            <div class="col-md-12 text-center">
+                                <button 
+                                    type="button" 
+                                    class="btn btn-outline-secondary btn-lg" 
+                                    v-bind:class="{'btn-dark':resultsMode == 'table','text-white':resultsMode == 'table'}" 
+                                    style="width:150px;" 
+                                    v-on:click="resultsMode = 'table'"
+                                    >Table
+                                </button>
+                                <button 
+                                    type="button" 
+                                    class="btn btn-outline-secondary btn-lg" 
+                                    v-bind:class="{'btn-dark':resultsMode == 'map','text-white':resultsMode == 'map'}" 
+                                    style="width:150px;" 
+                                    v-on:click="resultsMode = 'map'"
+                                    >
+                                    <span v-if="mapLayerIsLoading == true" class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                                    Map
+                                </button>
+                            </div>
+                        </div>
+
+                        <!--Messages-->
+                        <div class="row">
+                            <div class="col-md-12">
+                                <center v-if="ajaxInProgress == true && resultsMode == 'table'" class="text-primary">
+                                    <br><br><hr><br><br>
+                                    <h4>Loading...</h4>
+                                    <br><br><hr>
+                                </center>
+        
+                                <center v-if="serverErrorOccurred == true" class="text-primary">
+                                    <br><br><hr><br><br>
+                                    <h4>An error occurred on the server</h4>
+                                    <br><br><hr>
+                                </center>
+        
+                                <center v-if="noResultsFound == true" class="text-primary">
+                                    <br><br><hr><br><br>
+                                    <h4>No records matched this query</h4>
+                                    <br><br><hr>
+                                </center>
+                                
+                                <!--Matches Found-->
+                                <span>
+                                    <b v-if="calls.length > 0">Matches found: {{calls.length}}</b>
+                                    <b v-if="calls.length > 0 && oppositeCalls.length > 0" style="color:green;">
+                                         vs {{oppositeCalls.length}} 
+                                        <small>(Opposite Parameter)</small>
+                                        <small>( {{ oppositeCallsPercent }} = {{calls.length}} / ({{calls.length}}+{{oppositeCalls.length}}) )</small> 
+                                        <br> 
+                                        <small>{{oppositeCallsWhereExplanation}}</small>
+                                    </b>
+
+                                    <b v-if="calls.length ==0 && ajaxInProgress == false" class="text-white">---</b>
+                                    <b v-if="ajaxInProgress == true && resultsMode == 'map'">Loading...</b>
+                                </span>
+                            </div>  
+                        </div>
+
+                        <!--Table-->
+                        <div class="row" v-show="resultsMode == 'table'">  
+
+                            <div class="col-md-12" style="height:700px; margin-bottom:2em; overflow-y:scroll; overflow-x:hidden;">
+                                <div>        
+                                    <div v-if="calls.length > 0 || noResultsFound == true">
+                                        <div class="custom-control custom-checkbox" >
+                                            <input type="checkbox" class="custom-control-input" id="customCheck5555" v-model="showServerWhereClause">
+                                            <label class="custom-control-label" style="font-family: 'Courier New', Courier, monospace" for="customCheck5555">
+                                                <small>Show server's query?</small>
+                                            </label>                                
+                                        </div>
+                                        <small v-if="showServerWhereClause==true">                                
+                                            Server Query:<br>
+                                            <span style="font-family: 'Courier New', Courier, monospace">{{Where_AC}}</span><br>
+                                        </small>
+                                    </div>
+                                </div>       
+                                
+                                <br>
+        
+                                <!--Hero center / Examples-->
+                                <div v-show="calls.length == 0 && noResultsFound == false && ajaxInProgress==false">
+                                    <section class="jumbotron text-center">
+                                        <div class="container">
+                                            <h1 class="jumbotron-heading">Call Explorer</h1>
+                                            <p class="lead text-muted">Use the panel on the left to query the CAD system about calls. Begin with the thought: "How many calls have we had where X happened?"</p>
+                                            <p>
+                                            <a href="#" class="btn btn-primary my-2" @click="example1()">Ex: Fires at Apartments in Past Year</a>
+                                            <a href="#" class="btn btn-secondary my-2" @click="example2()">Ex: Priority 1 Calls Holding > 5 Minutes</a>
+                                            </p>
+                                            <h4>{{exampleMessage}}</h4>
+                                        </div>
+                                    </section>
+                                </div>
+                            
+                                <!--Results-->
+                                <table class="results fixed_header" v-if="calls.length > 0">
+                                    <thead>
+                                        <tr>
+                                            <th colspan="1"></th>
+                                            <th class="text-center" v-for="col in columnHeadGroups" v-bind:colspan="col.columns">
+                                                {{col.name}}
+                                            </th>
+                                        </tr>
+                                        <tr class="bg-secondary text-white">
+                                            <th class="text-center">
+                                                Notes
+                                            </th>
+                                            <th 
+                                                v-for="col in columns" 
+                                                :class="{'hl': highlight(col.name),'text-center':col.schema.align=='center','text-left':col.schema.align=='left','text-right':col.schema.align=='right'}" 
+                                                v-bind:title="col.schema.tooltip"
+                                                @click="sortBy(col.name)">
+                                                {{col.schema.th}}
+                                            </th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <template v-for="call in filteredCalls">
+                                            <tr v-bind:class="{'bg-warning': callnumber == call.Call_Number && detailsAreOpen == true}">
+                                                <td class="text-center">
+                                                    <span 
+                                                        v-on:click="callnumber = call.Call_Number ; detailsAreOpen = !detailsAreOpen ; getNotes(callnumber) ; getGlobalView(call.Date_Received)" 
+                                                        style="color:blue; text-decoration: underline; cursor:pointer;">Details
+                                                    </span>                                           
+                                                </td>
+        
+                                                <td v-for="col in columns"
+                                                    :class="{'text-center':col.schema.align=='center','text-left':col.schema.align=='left','text-right':col.schema.align=='right'}"
+                                                    v-bind:style="{width: col.schema.minWidth || ''}"
+                                                    v-html="(col.schema.type == 'integer' ? (parseInt(call[col.name]) == 0 ? '-' : call[col.name]) : call[col.name])"
+                                                    >                                                                                            
+                                                </td>
+                                            </tr>
+                                                    
+                                            <!--Unit Times-->
+                                                <tr v-if="callnumber == call.Call_Number && detailsAreOpen == true"
+                                                    v-bind:class="{'bg-secondary-light':callnumber == call.Call_Number && detailsAreOpen == true}">
+                                                    <td></td>
+                                                    <td v-bind:colspan="Object.keys(schema).length-1">
+                                                        <h4>Unit Times <small>(Ordered by On-Scene Time)</small></h4>
+                                                    </td>
+                                                </tr>   
+                                                <tr v-if="callnumber == call.Call_Number && detailsAreOpen == true"                                                    
+                                                    v-bind:class="{'bg-secondary-light':callnumber == call.Call_Number && detailsAreOpen == true}">
+                                                    <td></td>                                                    
+                                                    <td v-bind:colspan="Object.keys(schema).length-1">
+                                                        <table style="background-color:whitesmoke; width:1300px;">
+                                                            <thead style="background-color:gainsboro;">
+                                                                <tr>
+                                                                    <th style="text-align: center; width:100px;">Unit</th>
+                                                                    <th style="text-align: center; width:100px;">Dept</th>
+                                                                    <th style="text-align: center; width:100px;">Div</th>
+                                                                    <th style="text-align: center; width:100px;">DIS</th>
+                                                                    <th style="text-align: center; width:100px;">ENR</th>
+                                                                    <th style="text-align: center; width:100px;">ONS</th>
+                                                                    <th style="text-align: center; width:100px;">REM</th>
+                                                                    <th style="text-align: center; width:100px;">COM</th>
+                                                                </tr>
+                                                            </thead>
+                                                            <tbody>
+                                                                <tr v-for="unit in JSON.parse(call.UnitTimes)">                                                                    
+                                                                    <td style="text-align: center;">{{unit.Unit}}</td>
+                                                                    <td style="text-align: center;">{{unit.Department}}</td>
+                                                                    <td style="text-align: center;">{{unit.Division}}</td>
+                                                                    <td style="text-align: center;">{{unit.DIS}}</td>
+                                                                    <td style="text-align: center;">{{unit.ENR}}</td>
+                                                                    <td style="text-align: center;">{{unit.ONS}}</td>
+                                                                    <td style="text-align: center;">{{unit.REM}}</td>
+                                                                    <td style="text-align: center;">{{unit.COM}}</td>
+                                                                </tr>
+                                                            </tbody>
+                                                        </table>
+                                                    </td>
+                                                </tr>
+
+                                            <!--Notes-->
+                                                <tr v-if="callnumber == call.Call_Number && detailsAreOpen == true"
+                                                    v-bind:class="{'bg-secondary-light':callnumber == call.Call_Number && detailsAreOpen == true}">
+                                                    <td></td>
+                                                    <td v-bind:colspan="Object.keys(schema).length-1">
+                                                        <h4>Call Notes</h4>
+                                                    </td>
+                                                </tr>   
+                                                <tr v-if="callnumber == call.Call_Number && detailsAreOpen == true"                                                    
+                                                    v-bind:class="{'bg-secondary-light':callnumber == call.Call_Number && detailsAreOpen == true}">
+                                                    <td></td>                                                    
+                                                    <td v-bind:colspan="Object.keys(schema).length-1">
+                                                        <span v-if="notes.length == 0">Loading...</span>
+                                                        <table v-if="notes.length > 0" style="background-color:whitesmoke; width:1300px;">
+                                                            <thead style="background-color:gainsboro;">
+                                                                <tr>
+                                                                    <th></th>
+                                                                    <th>Note</th>
+                                                                </tr>
+                                                            </thead>
+                                                            <tbody>
+                                                                <tr v-for="note in notes">
+                                                                    <td class="text-primary">{{ (note.NoUnitsAvailNotes == 1 ? 'No Units Avail -->' : '' ) }}</td>
+                                                                    <td v-bind:class="{'text-primary': note.NoUnitsAvailNotes == 1 }">{{note.Narrative}}</td>
+                                                                </tr>
+                                                            </tbody>
+                                                        </table>
+                                                    </td>
+                                                </tr>
+                                                
+                                            <!--Other Calls-->
+                                                <tr v-if="callnumber == call.Call_Number && detailsAreOpen == true"
+                                                    v-bind:class="{'bg-secondary-light':callnumber == call.Call_Number && detailsAreOpen == true}">
+                                                    <td></td>
+                                                    <td v-bind:colspan="Object.keys(schema).length-1">
+                                                        <h4>Other Calls Occuring When this Call was Received <small>(See map below)</small></h4>
+                                                    </td>
+                                                </tr>   
+                                                <tr v-if="callnumber == call.Call_Number && detailsAreOpen == true"                                                     
+                                                    v-bind:class="{'bg-secondary-light':callnumber == call.Call_Number && detailsAreOpen == true}">
+                                                    <td></td>
+                                                    <td v-bind:colspan="Object.keys(schema).length-1">
+                                                        <span v-if="globalViewOtherCalls.length == 0">Loading...</span>
+                                                        <table v-if="globalViewOtherCalls.length > 0" style="background-color:whitesmoke; width:1300px;">
+                                                            <thead style="background-color:gainsboro;">
+                                                                <tr>
+                                                                    <th>Call_Number</th>
+                                                                    <th>Complaint</th>
+                                                                    <th>Priority</th>
+                                                                    <th>Date_Received</th>
+                                                                    <th>Time_Complete</th>                                                                
+                                                                    <th>Units</th>
+                                                                </tr>
+                                                            </thead>
+                                                            <tbody>
+                                                                <tr v-for="othercall in globalViewOtherCalls">
+                                                                    <td>{{othercall.Call_Number}}</td>
+                                                                    <td>{{othercall.Complaint}}</td>
+                                                                    <td>{{othercall.Priority}}</td>
+                                                                    <td>{{othercall.Date_Received}}</td>
+                                                                    <td>{{othercall.Time_Complete}}</td>
+                                                                    <td>{{othercall.Units}}</td>
+                                                                </tr>
+                                                            </tbody>
+                                                        </table>
+                                                    </td>
+                                                </tr>
+
+                                            <!--Map Image-->
+                                                <tr v-if="callnumber == call.Call_Number && detailsAreOpen == true"
+                                                    v-bind:class="{'bg-secondary-light':callnumber == call.Call_Number && detailsAreOpen == true}">
+                                                    <td></td>
+                                                    <td v-bind:colspan="Object.keys(schema).length-1">
+                                                        <h4>Map: <small>(Static map of calls and unit locations at the time this call was received)</small></h4>
+                                                    </td>
+                                                </tr>   
+                                                <tr v-if="callnumber == call.Call_Number && detailsAreOpen == true"                                                    
+                                                    v-bind:class="{'bg-secondary-light':callnumber == call.Call_Number && detailsAreOpen == true}">
+                                                    <td></td>
+                                                    <td v-bind:colspan="Object.keys(schema).length-1">
+                                                        <span v-if="globalViewMapUrl.length == 0">Loading...</span>
+                                                        <img v-if="globalViewMapUrl.length > 0" v-bind:src="globalViewMapUrl" style="border:solid 1px gray;" />
+                                                    </td>
+                                                </tr>
+                                        </template>
+                                    </tbody>
+                                </table>
+                                <br>
+                                <br>
+                            </div>
+                        </div> <!--Table .row-->
+                            
+                        <!--Map-->
+                        <div class="row" v-show="resultsMode == 'map'">
+                            <div class="col-md-12">
+
+                                <!--Layer Control-->
+                                <div style="position: absolute; top: 5px; right:0px; height: 75px; width:145px; background:whitesmoke; z-index:999;padding:0.8em;">
+                                    <div v-for="mapService in mapServices">
+                                        <div class="custom-control custom-checkbox">
+                                            <input 
+                                                type="checkbox" 
+                                                class="custom-control-input" 
+                                                v-bind:id="'customCheckMapService'+mapService.id" 
+                                                v-model="parameters[mapService.id].mapServiceActive"
+                                                >
+                                            <label 
+                                                class="custom-control-label" 
+                                                style="color:black;font-size:0.8em;padding-top:3px;" 
+                                                v-bind:for="'customCheckMapService'+mapService.id"
+                                                >{{splitCamelCase(mapService.label)}}
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!--Map Object-->
+                                <div id="viewDiv"></div>
+                            </div>
+                        </div> 
+
+                    </div>
+                </div>   
+                
+            </div>   <!--end center content-->        
+        </div>
+    </div>
+
+    <!--================================================================-->
+    <script>
+        "use strict"
+        
+        var app = new Vue({
+            el: "#app",
+            data: {
+                calls: [],
+                noResultsFound: false,
+                serverErrorOccurred: false,
+                callnumber: '',
+                notes: [],
+                detailsAreOpen: false,
+                sortOrder: 1,
+                sortKey: '',
+                showUnits: false,
+                isEmployee: 0,
+                username: '',
+                showLink: false,
+                showServerWhereClause: false,
+                showParams: true,
+                ajaxInProgress: false,                
+                exampleMessage: "",
+                resultsMode: "table",
+                mapLayerIsLoading: false,
+                oppositeParameterName: '',
+                oppositeCalls: [],
+                globalViewOtherCalls: [],
+                globalViewVehicles: [],
+                globalViewMapUrl: '',
+
+                sections: {
+                    dates: {title1: "Dates",title2:"[Date Received] Field"},
+                    address: {title1: "Address",title2: "Caution: Some locations have multiple addresses"},
+                    calltypes: {title1: "Call Types",title2: "[Call Type] and [Complaint Type] Fields"},
+                    callsholding:{title1: "Calls Holding",title2: "Time Received to Time First Unit is Onscene"},
+                    resptimes:{title1: "Response Times",title2: "Read details to get further insights"},
+                    mutualaid:{title1: "Mutual Aid (Fire)",title2: "Mutual aid fire calls"},
+                    geographic:{title1: "Geographic",title2:"Calls that occurred within a geographic boundary"},
+                    other:{title1: "Other",title2: "Other Parameters"},
+                    unitsresponding:{title1:"Which Units Responded",title2: "Units"},
+                    unitsavail:{title1:"Units On-Duty / Availabe",title2: "From Unit-Log. Based on timestamps of action-types 'OnDuty','OffDuty' and 'Login'"},
+                    weather:{title1:"Weather",title2: "National Weather Service (Hourly)"}
+                },
+
+                parameters: {
+                
+                //Dates
+                    AC_DateReceivedLo: {
+                        type: "datetime",
+                        value: [],
+                        loHi: true,
+                        oldvalue: [],
+                        label1: "Date Range",
+                        label2: "MM/dd/yyyy hh:mm:ss",
+                        section: "dates"
+                    },
+                    AC_DateReceivedHi: {
+                        type: "datetime",
+                        value: [],
+                        loHi: true,
+                        oldvalue: [],
+                        label1: "Date Range",
+                        label2: "MM/dd/yyyy hh:mm:ss",
+                        section: "dates"
+                    },
+                    AC_HourOfDayLo: {
+                        type: "time",
+                        value: [],
+                        loHi: true,
+                        label1: "Hour of Day",
+                        label2: "HH:MM",
+                        section: "dates"
+                    },
+                    AC_HourOfDayHi: {
+                        type: "time",
+                        value: [],
+                        loHi: true,
+                        label1: "Hour of Day",
+                        label2: "HH:MM",
+                        section: "dates"
+                    },
+                    AC_DateReceivedPast1Years: {
+                        type: "boolean",
+                        value: false,
+                        label1: "Past 1 Year",
+                        label2: "(Now - 365 Days)",
+                        section: "dates"
+                    },
+                    AC_DateReceivedPast2Years: {
+                        type: "boolean",
+                        value: false,
+                        label1: "Past 2 Years",
+                        label2: "(Now - 730 Days)",
+                        section: "dates"
+                    },
+                    AC_DateReceivedPast1Months: {
+                        type: "boolean",
+                        value: false,
+                        label1: "Past 1 Month",
+                        label2: "(Today's-Date-Last-Month to Now)",
+                        section: "dates"
+                    },
+                    AC_DateReceivedPast6Months: {
+                        type: "boolean",
+                        value: false,
+                        label1: "Past 6 Months",
+                        label2: "(Today's-Date-6-Months-Ago to Now)",
+                        section: "dates"
+                    },
+                    AC_DateReceivedPast24Hours:{
+                        type: "boolean",
+                        value: false,
+                        label1: "Past 24 Hours",
+                        label2: "(Now - 24 Hours)",
+                        section: "dates"
+                    },
+
+                //Address    
+                    AC_IncidLocation: {
+                        type: "csv",
+                        value: [],
+                        label1: "Addresses",
+                        label2: "Comma-Separated",
+                        section: "address"
+                    },
+                    AC_Street: {
+                        type: "csv",
+                        value: [],
+                        label1: "Street(s)",
+                        label2: "Comma-Separated",
+                        section: "address"
+                    },                    
+                    AC_LandmarkType: {
+                        type: "multiselect",
+                        value: [],
+                        options: [],
+                        dropdownList: "Landmark_Types",
+                        label1: "Landmark Types",
+                        label2: "",
+                        section: "address"
+                    },
+                    AC_IsApartment: {
+                        type: "boolean",
+                        value: false,
+                        label1: "Apartment-Type Only?",
+                        label2: "Landmark 'Type' = 'Apartment' or 'Apartments'",
+                        section: "address"
+                    },
+
+                //Call Types
+                    AC_CallClass: {
+                        type: "multiselect",
+                        value: [],
+                        options: [],
+                        dropdownList: "Call_Classes",
+                        label1: "Call Classes",
+                        label2: "(From those used in past 2 years)",
+                        section: "calltypes"
+                    },
+                    AC_Disposition: {
+                        type: "multiselect",
+                        value: [],
+                        options: [],
+                        dropdownList: "Disposition_Codes",
+                        label1: "Disposition",
+                        label2: "(How did the call end?)",
+                        section: "calltypes"
+                    },
+                    AC_Complaint: {
+                        type: "multiselect",
+                        value: [],
+                        options: [],
+                        dropdownList: "Complaint_Types",
+                        label1: "Complaint Type(s)",
+                        label2: "(From those used in past 2 years)",
+                        section: "calltypes"
+                    },
+                    AC_IsTrafficRelatedCall: {
+                        type: "boolean",
+                        value: false,
+                        label1: "Traffic-Related Calls",
+                        label2: "ACC MINORACC,RESCUE,MAJOR ACC,TRHZ TRAFFIC",
+                        section: "calltypes"
+                    },
+                    AC_PriorityLo: {
+                        type: "integer",
+                        value: [],
+                        loHi: true,
+                        label1: "Priority",
+                        label2: "1,2,3,4,9",
+                        section: "calltypes"
+                    },
+                    AC_PriorityHi: {
+                        type: "integer",
+                        value: [],
+                        loHi: true,
+                        label1: "Priority",
+                        label2: "1,2,3,4,9",
+                        section: "calltypes"
+                    },
+                    AC_CallNumber: {
+                        type: "csv",
+                        value: [],
+                        label1: "Call Number(s)",
+                        label2: "Comma-Separated",
+                        section: "calltypes"
+                    },                  
+                   
+                //Calls Holding    
+                    AC_MinutesHoldingLo: {
+                        type: "integer",
+                        value: [],
+                        loHi: true,
+                        label1: "Minutes Holding",
+                        label2: "",
+                        section: "callsholding"
+                    },
+                    AC_MinutesHoldingHi: {
+                        type: "integer",
+                        value: [],
+                        loHi: true,
+                        label1: "Minutes Holding",
+                        label2: "",
+                        section: "callsholding"
+                    },
+
+                //Response Times
+                    AC_RTRecToOnsLo: {
+                        type: "integer",
+                        value: [],
+                        loHi: true,
+                        label1: "REC to ONS",
+                        label2: "Received to Onscene",
+                        section: "resptimes"
+                    },
+                    AC_RTRecToOnsHi: {
+                        type: "integer",
+                        value: [],
+                        loHi: true,
+                        label1: "REC to ONS",
+                        label2: "Received to Onscene",
+                        section: "resptimes"
+                    },
+                    AC_RTDisToOnsLo: {
+                        type: "integer",
+                        value: [],
+                        loHi: true,
+                        label1: "DIS to ONS",
+                        label2: "Dispatched to Onscene",
+                        section: "resptimes"
+                    },
+                    AC_RTDisToOnsHi: {
+                        type: "integer",
+                        value: [],
+                        loHi: true,
+                        label1: "DIS to ONS",
+                        label2: "Dispatched to Onscene",
+                        section: "resptimes"
+                    },
+
+                //Geographic
+                    AC_InCastleHills: {
+                        type: "boolean",
+                        value: false,
+                        label1: "In Castle Hills Only?",
+                        label2: "IRAs 640,641,642,643,644,645,646,647, 648,804,805",
+                        section: "geographic",
+                        mapService: "https://adaptergis.cityoflewisville.com/arcgis/rest/services/GEM/GEM_CastleHills/MapServer",
+                        mapServiceActive: false
+                    },
+                    AC_InOldTownOnly: {
+                        type: "boolean",
+                        value: false,
+                        label1: "In Old Town Only?",
+                        label2: "",
+                        section: "geographic",
+                        mapService:''
+                    },
+                    AC_InMultiFamilyZoning:{
+                        type: "boolean",
+                        value: false,
+                        label1: "In Multi-Family Zoning?",
+                        label2: "MF1,MF2,MF3",
+                        section: "geographic"
+                    },
+                    AC_FireDistrict:{
+                        type: "multiselect",
+                        value: [],
+                        options: [],
+                        dropdownList: "Fire_Districts",
+                        label1: "Fire District(s)",
+                        label2: "",
+                        section: "geographic",
+                        mapService: "https://adaptergis.cityoflewisville.com/arcgis/rest/services/PublicSafety/Fire_Response_Districts/MapServer",
+                        mapServiceActive: false
+                    },
+
+                //Mutual Aid
+                    AC_IncludesMAFireUnits: {
+                        type: "boolean",
+                        value: false,
+                        label1: "Only calls that included Mutual Aid Fire Units?",
+                        label2: "",
+                        section: "mutualaid"
+                    },
+                    AC_MAFireUnitsWasFirstOns: {
+                        type: "boolean",
+                        value: false,
+                        label1: "Only calls where mutual aid Fire Unit was 1st ONS?",
+                        label2: "",
+                        section: "mutualaid"
+                    },
+
+                //Other
+                    AC_IncludeTrafficStop: {
+                        type: "boolean",
+                        value: false,
+                        label1: "Include 'Traffic Stop' calls?",
+                        label2: "",
+                        section: "other"
+                    },
+                    AC_IncludeTrafficSpecAssign: {
+                        type: "boolean",
+                        value: false,
+                        label1: "Include 'Traffic Special Assign.' calls?",
+                        label2: "",
+                        section: "other"
+                    },      
+                    AC_NoUnitsAvailNotes: {
+                        type: "boolean",
+                        value: false,
+                        label1: "Only calls with 'No unit avail' Notes?",
+                        label2: "",
+                        section: "other"
+                    },
+                    AC_NotesSearch: {
+                        type: "text",
+                        value: [],
+                        label1: "Narrative Search",
+                        label2: "Wild card (%) supported",
+                        section: "other"
+                    },
+                
+                //Units Responding
+                    AC_FirstUnit_FD: {
+                        type: "multiselect",
+                        value: [],
+                        options: [],
+                        dropdownList: "Units_FD",
+                        label1: "First FD Unit(s) On-Scene",
+                        label2: "",
+                        section: "unitsresponding",
+                        oppositeParameter: {
+                            include: false, 
+                            name:"AC_NotFirstUnit_FD"
+                        }
+                    },
+                    AC_NotFirstUnit_FD: {
+                        type: "multiselect",
+                        value: [],
+                        options: [],
+                        dropdownList: "Units_FD",
+                        label1: "Not the First FD Unit(s) On-Scene",
+                        label2: "",
+                        section: "unitsresponding",
+                        oppositeParameter: {
+                            include: false, 
+                            name:"AC_FirstUnit_FD"
+                        }
+                    },
+                    AC_UnitsPD: {
+                        type: "multiselect",
+                        value: [],
+                        options: [],
+                        dropdownList: "Units_PD",
+                        label1: "Includes these PD Units",
+                        label2: "",
+                        section: "unitsresponding"
+                    },
+                    AC_UnitsFD: {
+                        type: "multiselect",
+                        value: [],
+                        options: [],
+                        dropdownList: "Units_FD",
+                        label1: "Includes these FD Units",
+                        label2: "",
+                        section: "unitsresponding"
+                    },
+                    AC_UnitsFDNot: {
+                        type: "multiselect",
+                        value: [],
+                        options: [],
+                        dropdownList: "Units_FD",
+                        label1: "Doesn't Include these FD Units",
+                        label2: "",
+                        section: "unitsresponding"
+                    },
+                    AC_PDUnitsCountLo: {
+                        type: "integer",
+                        value: [],
+                        loHi: true,
+                        label1: "Min Number of PD Units Assigned",
+                        label2: "",
+                        section: "unitsresponding"
+                    },
+                    AC_PDUnitsCountHi: {
+                        type: "integer",
+                        value: [],
+                        loHi: true,
+                        label1: "Min Number of PD Units Assigned",
+                        label2: "",
+                        section: "unitsresponding"
+                    },
+                    
+                    AC_FDUnitsCountLo: {
+                        type: "integer",
+                        value: [],
+                        loHi: true,
+                        label1: "Min Number of FD Units Assigned",
+                        label2: "",
+                        section: "unitsresponding"
+                    },
+                    AC_FDUnitsCountHi: {
+                        type: "integer",
+                        value: [],
+                        loHi: true,
+                        label1: "Min Number of FD Units Assigned",
+                        label2: "",
+                        section: "unitsresponding"
+                    },
+                    AC_ExcludeFDOnlyCalls: {
+                        type: "boolean",
+                        value: false,
+                        label1: "Exclude calls where only FD responded?",
+                        label2: "",
+                        section: "unitsresponding"
+                    },
+                    AC_ExcludePDOnlyCalls: {
+                        type: "boolean",
+                        value: false,
+                        label1: "Exclude calls where only PD responded?",
+                        label2: "",
+                        section: "unitsresponding"
+                    },
+
+                //Units on-Duty    
+                    AC_PatrolOnDutyLo: {
+                        type: "integer",
+                        value: [],
+                        loHi: true,
+                        label1: "Patrol Units: On-Duty",
+                        label2: "",
+                        section: "unitsavail"
+                    },
+                    AC_PatrolOnDutyHi: {
+                        type: "integer",
+                        value: [],
+                        loHi: true,
+                        label1: "Patrol Units: On-Duty",
+                        label2: "",
+                        section: "unitsavail"
+                    },
+                    AC_PatrolAvailLo: {
+                        type: "integer",
+                        value: [],
+                        loHi: true,
+                        label1: "Patrol Units: Available",
+                        label2: "",
+                        section: "unitsavail"
+                    },
+                    AC_PatrolAvailHi: {
+                        type: "integer",
+                        value: [],
+                        loHi: true,
+                        label1: "Patrol Units: Available",
+                        label2: "",
+                        section: "unitsavail"
+                    },
+                    AC_TrafficOnDutyLo: {
+                        type: "integer",
+                        value: [],
+                        loHi: true,
+                        label1: "Traffic Units: On-Duty",
+                        label2: "",
+                        section: "unitsavail"
+                    },
+                    AC_TrafficOnDutyHi: {
+                        type: "integer",
+                        value: [],
+                        loHi: true,
+                        label1: "Traffic Units: On-Duty",
+                        label2: "",
+                        section: "unitsavail"
+                    },
+                    AC_TrafficAvailLo: {
+                        type: "integer",
+                        value: [],
+                        loHi: true,
+                        label1: "Traffic Units: Available",
+                        label2: "",
+                        section: "unitsavail"
+                    },
+                    AC_TrafficAvailHi: {
+                        type: "integer",
+                        value: [],
+                        loHi: true,
+                        label1: "Traffic Units: Available",
+                        label2: "",
+                        section: "unitsavail"
+                    },
+                    
+                //Weather  
+                    AC_WeatherConditions: {
+                        type: "multiselect",
+                        value: [],
+                        options: [],
+                        dropdownList: "Weather_Conditions",
+                        label1: "Weather Conditions",
+                        label2: "NWS Hourly",
+                        section: "weather"
+                    },
+                    AC_WeatherWasRaining: {
+                        type: "boolean",
+                        value: false,
+                        label1: "Was Raining?",
+                        label2: "IN('rain','snow','drizzle')",
+                        section: "weather"
+                    },
+                    AC_WeatherWasNotRaining: {
+                        type: "boolean",
+                        value: false,
+                        label1: "Was Not Raining?",
+                        label2: "Not IN('rain','snow','drizzle')",
+                        section: "weather"
+                    },
+                    AC_WeatherWasBelowFreezing: {
+                        type: "boolean",
+                        value: false,
+                        label1: "Was Below Freezing?",
+                        label2: "Temperature < 32F",
+                        section: "weather"
+                    },
+                    AC_WeatherTempLo: {
+                        type: "integer",
+                        value: [],
+                        loHi: true,
+                        label1: "Temperature",
+                        label2: "",
+                        section: "weather"
+                    },
+                    AC_WeatherTempHi: {
+                        type: "integer",
+                        value: [],
+                        loHi: true,
+                        label1: "Temperature",
+                        label2: "",
+                        section: "weather"
+                    }
+                },
+
+                schema:{
+                    Id: {
+                        type:"integer",
+                        th:"Row",
+                        tooltip: "Generic row id",
+                        align:"center",
+                        thGroup:"",
+                        parameters:[]
+                    },
+                    Call_Number: {
+                        type:"string",
+                        th:"Call Number",
+                        tooltip: "Call Number",
+                        align:"center",
+                        thGroup:"",
+                        parameters:["AC_CallNumber"]
+                    },
+                    Complaint: {
+                        type:"string",
+                        th:"Complaint",
+                        tooltip: "Complaint Code",
+                        align:"left",
+                        thGroup:"",
+                        parameters:["AC_Complaint","AC_IsTrafficRelatedCall"]
+                    },  
+                    Date_Received: {
+                        type:"datetime",
+                        th:"Date Received",
+                        tooltip: "Date /time call was received",
+                        align:"center",
+                        thGroup:"",
+                        parameters:["AC_DateReceivedLo","AC_DateReceivedHi","AC_DateReceivedPast1Years","AC_DateReceivedPast2Years","AC_DateReceivedPast1Months","AC_DateReceivedPast6Months"]
+                    },
+                    Actual_Incid_Location: {
+                        type:"string",
+                        th:"Address",
+                        tooltip: "Incident address and landmark-name",
+                        align:"left",
+                        thGroup:"",
+                        minWidth: "200px",
+                        parameters:["AC_IncidLocation","AC_Street"]
+                    },
+                    LocationCount: {
+                        type:"integer",
+                        th:"Addr Count",
+                        tooltip: "Number of incidents at this address",
+                        align:"center",
+                        thGroup:"",
+                        visible: false
+                    },
+                    Tract: {
+                        type:"string",
+                        th:"IRA",
+                        tooltip: "PD internal reporting area",
+                        align:"center",
+                        thGroup:"",
+                        parameters:["AC_InCastleHills"]
+                    },
+                    Disp_Zone: {
+                        type:"string",
+                        th:"PD Dist",
+                        tooltip: "Police District",
+                        align:"center",
+                        thGroup:""
+                    },
+                    Internal_ESN: {
+                        type:"string",
+                        th:"FD Dist",
+                        tooltip: "Fire District",
+                        align:"center",
+                        thGroup:"",
+                        parameters:["AC_FireDistrict"]
+                    },
+                    Call_Class: {
+                        type:"string",
+                        th:"Class",
+                        tooltip: "Call Class",
+                        align:"center",
+                        thGroup:"",
+                        parameters:["AC_CallClass"]
+                    },
+                    Priority: {
+                        type:"integer",
+                        th:"Priority",
+                        tooltip: "Priority Level",
+                        align:"center",
+                        thGroup:"",
+                        parameters:["AC_PriorityLo","AC_PriorityHi"]
+                    },                               
+                    First_Unit: {
+                        type:"string",
+                        th:"First Unit",
+                        tooltip: "First unit on-scene",
+                        align:"center",
+                        thGroup:"",
+                        parameters:["AC_FirstUnit_FD","AC_NotFirstUnit_FD"]
+                    },      
+                    Departments: {
+                        type:"string",
+                        th:"Depts",
+                        tooltip: "Departments involved in this call",
+                        align:"center",
+                        thGroup:"",
+                        parameters:["AC_ExcludeFDOnlyCalls","AC_ExcludePDOnlyCalls"]
+                    },  
+                    Dispositions: {
+                        type:"string",
+                        th:"Disp",
+                        tooltip: "Call disposition code(s)",
+                        align:"center",
+                        thGroup:"",
+                        parameters:["AC_Disposition"]
+                    },  
+                    NoteSearchSnippet: {
+                        type:"string",
+                        th:"Note Search",
+                        tooltip: "Snippet of narrative that includes your search term",
+                        align:"left",
+                        thGroup:"",
+                        parameters:["AC_NotesSearch"]
+                    },
+                    PDUnitsCount: {
+                        type: "integer",
+                        th:"PD",
+                        tooltip: "Number of Police units that responded",
+                        align:"center",
+                        thGroup:"Unit Count",
+                        parameters:["AC_PDUnitsCountLo","AC_PDUnitsCountHi"]
+                    },
+                    FDUnitsCount: {
+                        type:"integer",
+                        th:"FD",
+                        tooltip: "Number of Fire units that responded",
+                        align:"center",
+                        thGroup:"Unit Count",
+                        parameters:["AC_FDUnitsCountLo","AC_FDUnitsCountHi"]
+                    },
+                    MinutesHolding: {
+                        type:"decimal",
+                        th:"Min Holding",
+                        tooltip: "Minutes between time-received and time-dispatched",
+                        align:"center",
+                        thGroup:"Resp Time",
+                        parameters:["AC_MinutesHoldingLo","AC_MinutesHoldingHi"]
+                    }, 
+                    RTRecToOns: {
+                        type:"decimal",
+                        th:"REC to ONS",
+                        tooltip: "Minutes between time-received to first-unit on-scene",
+                        align:"center",
+                        thGroup:"Resp Time",
+                        parameters:["AC_RTDisToOnsLo","AC_RTDisToOnsHi"]
+                    },
+                    RTDisToOns: {
+                        type:"decimal",
+                        th:"DIS to ONS",
+                        tooltip: "Minutes between time-dispatched to first-unit on-scene",
+                        align:"center",
+                        thGroup:"Resp Time",
+                        parameters:["AC_RTRecToOnsLo","AC_RTRecToOnsHi"]
+                    },
+                    Time_Dispatched: {
+                        type:"datetime",
+                        th:"Time DIS",
+                        tooltip: "Date/time call was dispatched",
+                        align:"center",
+                        thGroup:"Call Times",
+                        parameters:[]
+                    },
+                    Time_Onscene: {
+                        type:"datetime",
+                        th:"Time ONS",
+                        tooltip: "Date/time first-unit was on-scene",
+                        align:"center",
+                        thGroup:"Call Times",
+                        parameters:[]
+                    },
+                    Time_Complete: {
+                        type:"datetime",
+                        th:"Time COM",
+                        tooltip: "Date/time call was marked 'complete'",
+                        align:"center",
+                        thGroup:"Call Times",
+                        parameters:[]
+                    },
+                    WX_Temperature: {
+                        type:"integer",
+                        th:"Temp",
+                        tooltip: "NWS-Temperature at the nearest hour to time-received",
+                        align:"center",
+                        thGroup:"Weather",
+                        parameters:["AC_WeatherTempLo","AC_WeatherTempHi"]
+                    },
+                    WX_ConditionSummary: {
+                        type:"string",
+                        th:"Conds",
+                        tooltip: "NWS condition-statement at the nearest hour to time-received",
+                        align:"left",
+                        thGroup:"Weather",
+                        parameters:["AC_WeatherConditions","AC_WeatherWasRaining","AC_WeatherWasNotRaining"]
+                    },
+                    PatrolOnDuty: {
+                        type:"integer",
+                        th:"OD",
+                        tooltip: "Number of patrol units on-duty. From Unit-Log. Based on timestamps of action-types 'OnDuty','OffDuty' and 'Login'",
+                        align:"center",
+                        thGroup:"Patrol",
+                        parameters:["AC_PatrolOnDutyLo","AC_PatrolOnDutyHi"]
+                    },
+                    PatrolAvail: {
+                        type:"integer",
+                        th:"AV",
+                        tooltip: "Number of patrol units on-duty and not assigned to a call. From Unit-Log. Based on timestamps of action-types 'OnDuty','OffDuty' and 'Login'",
+                        align:"center",
+                        thGroup:"Patrol",
+                        parameters:["AC_PatrolAvailLo","AC_PatrolAvailHi"]
+                    },
+                    PatrolNotAvail: {
+                        type: "integer",
+                        th:"NA",
+                        tooltip: "Number of patrol assigned to a call. From Unit-Log. Based on timestamps of action-types 'OnDuty','OffDuty' and 'Login'",
+                        align:"center",
+                        thGroup:"Patrol",
+                        parameters:[]
+                    },
+                    TrafficOnDuty: {
+                        type:"integer",
+                        th:"OD",
+                        tooltip: "Number of traffic units on-duty. From Unit-Log. Based on timestamps of action-types 'OnDuty','OffDuty' and 'Login'",
+                        align:"center",
+                        thGroup:"Traffic",
+                        parameters:["AC_TrafficOnDutyLo","AC_TrafficOnDutyHi"]
+                    },
+                    TrafficAvail: {
+                        type:"integer",
+                        th:"AV",
+                        tooltip: "Number of traffic units on-duty and not assigned to a call. From Unit-Log. Based on timestamps of action-types 'OnDuty','OffDuty' and 'Login'",
+                        align:"center",
+                        thGroup:"Traffic",
+                        parameters:["AC_TrafficAvailLo","AC_TrafficAvailHi"]
+                    },
+                    TrafficNotAvail: {
+                        type:"integer",
+                        th:"NA",
+                        tooltip: "Number of patrol assigned to a call. From Unit-Log. Based on timestamps of action-types 'OnDuty','OffDuty' and 'Login'",
+                        align:"center",
+                        thGroup:"Traffic",
+                        parameters:[]
+                    }
+                },
+                Where_AC: ''
+            },            
+            methods: {
+                init: function(){
+                    var _this = this
+                    
+                    _this.getDropdownListValues()
+                    _this.setParamsFromUrl()  
+                },  
+                cleanParamsForServer: function(){
+                    var _this = this
+                    var _params = {}
+                    
+                    //csv
+
+                    Object.keys(_this.parameters).forEach(function(p){
+                        var pname = p
+                        var _obj = _this.parameters[pname]
+
+                        if (_obj.type == "csv" && Array.isArray(_this.parameters[pname].value) == false){
+                            if (_this.parameters[pname].value !== ''){_params[pname] = JSON.stringify(_this.parameters[pname].value.split(",").map(function(a){return {"value": a}}))}
+                        }
+
+                        if (_obj.type == "text" && Array.isArray(_this.parameters[pname].value) == false){
+                            if (_this.parameters[pname].value.length > 0){_params[pname] = _this.parameters[pname].value}
+                        }
+
+                        if (_obj.type == "multiselect" && Array.isArray(_this.parameters[pname].value) == true){
+                            if (_this.parameters[pname].value.length > 0){
+
+                                var _mapped = _this.parameters[pname].value.map(function(_value){
+                                    return {"value": _value}
+                                })
+                                _params[pname] = JSON.stringify(_mapped)
+                            }
+                        }
+
+                        if (_obj.type == "boolean" && Array.isArray(_this.parameters[pname].value) == false){
+                            if (_this.parameters[pname].value == true){_params[pname] = 1}
+                        }
+
+                        if (_obj.type == "datetime" && Array.isArray(_this.parameters[pname].value) == false){
+                            if (_this.parameters[pname].value !== ''){_params[pname] = _this.parameters[pname].value}
+                        }
+
+                        if (_obj.type == "time" && Array.isArray(_this.parameters[pname].value) == false){
+                            if (_this.parameters[pname].value.length > 0){_params[pname] = _this.parameters[pname].value}
+                        }
+
+                        if (_obj.type == "integer" && Array.isArray(_this.parameters[pname].value) == false){
+                            if (_this.parameters[pname].value !== ''){_params[pname] = parseInt(_this.parameters[pname].value)}
+                        }
+                    })
+
+                    return _params
+                },
+                runReport: function(){
+                    var _this = this
+                    var _params = _this.cleanParamsForServer()
+
+                    var _oppositeParametersToReturn = Object.keys(_params).filter(function(_p){
+                        return _this.parameters[_p].hasOwnProperty("oppositeParameter") && _this.parameters[_p].oppositeParameter.include == true && _params[_p].length > 0
+                    })
+                    
+                    //GetCalls()
+                    if (_oppositeParametersToReturn.length > 0){
+                        //Main call
+                            _this.getCalls()
+
+                        //Secondary call
+                            var _paramName = _oppositeParametersToReturn[0]
+                            var _oppositeParamName = _this.parameters[_paramName].oppositeParameter.name                        
+                            _this.oppositeParameterName = _oppositeParamName
+                            
+                            //Swap values
+                            _params[_oppositeParamName] = _params[_paramName]
+                            delete _params[_paramName]
+                            console.log(_params)
+
+                            //Get opposite calls
+                            _this.getCallsOpposite(_params)
+
+                    }else{
+                        _this.getCalls()
+                    }
+                },              
+                getCalls: function(){
+                    var _this = this
+                    
+                    //Reset _this.calls
+                    _this.calls = []
+
+                    var _params = _this.cleanParamsForServer()
+                    _params.webservice = "CallsAnalysisGet"
+                    //_params.auth_token = localStorage.colAuthToken
+
+                    _this.ajaxInProgress = true
+                    _this.serverErrorOccurred = false
+                    _this.noResultsFound = false
+
+                    axios.post('https://query.cityoflewisville.com/v2', _params)
+                    .then(function(_results){ 
+
+                        if (_results.data[0][0].hasOwnProperty("Id")){ 
+                            console.log("Calls returned")
+
+                            _this.calls = _results.data[0]
+                            _this.Where_AC = _this.calls[0]._Where_AC
+
+                            _this.noResultsFound = false
+                            _this.ajaxInProgress = false
+                            _this.serverErrorOccurred = false
+                            
+                        }else{
+                            _this.Where_AC = _results.data[0][0]._Where_AC
+
+                            _this.noResultsFound = true
+                            _this.ajaxInProgress = false
+                            _this.serverErrorOccurred = false
+                        }
+                    })
+                    .catch(function(error){ 
+                        _this.ajaxInProgress = false
+                        _this.serverErrorOccurred = true
+                        _this.noResultsFound = true
+                        console.error(error)
+                    })
+                },
+                getCallsOpposite: function(_params){
+                    var _this = this
+                    
+                    //Reset _this.oppositeCalls
+                    _this.oppositeCalls = []
+                    
+                    _params.webservice = "CallsAnalysisGet"
+                    //_params.auth_token = localStorage.colAuthToken
+
+                    axios.post('https://query.cityoflewisville.com/v2', _params)
+                    .then(function(_results){ 
+
+                        if (_results.data[0][0].hasOwnProperty("Id")){ 
+
+                            console.log("Opposite Calls returned")
+                            _this.oppositeCalls = _results.data[0]
+
+                        }
+                    })
+                    .catch(function(error){
+                        console.error(error)
+                    })
+                },
+                getDropdownListValues: function(){
+                    var _this = this
+                    axios.post('https://query.cityoflewisville.com/v2', {
+                        webservice: "CallsAnalysisDropdownLists",
+                        auth_token: localStorage.colAuthToken
+                    })
+                    .then(function(_results){  
+                        if (typeof _results.data[0][0] != 'undefined'){
+
+                            var _multiselects = Object.keys(_this.parameters).filter(function(_p){
+                                return _this.parameters[_p].type == "multiselect"
+                            })
+                           
+                            _multiselects.forEach(function(_p){
+                                var _thisParamsCategory = _results.data[0].filter(function(_d){
+                                    return _d.cat == _this.parameters[_p].dropdownList
+                                })
+                                _this.parameters[_p].options = _thisParamsCategory.map(function(c){
+                                    return {code: c.code, description: c.description}
+                                })
+                            })
+                        }
+                    })
+                    .catch(function(error){ 
+                        console.error("getDropdownListValues")
+                        console.error(error)
+                    })
+                },                
+                getNotes: function(_callnumber){
+                    var _this = this
+                    axios.post('https://query.cityoflewisville.com/v2', {
+                        webservice: "CallsAnalysisNotes",
+                        auth_token: localStorage.colAuthToken,
+                        callnumber: _callnumber
+                    })
+                    .then(function(_results){  
+                        if (typeof _results.data[0][0] != 'undefined'){
+                            _this.notes = _results.data[0]
+                        }
+                    })
+                    .catch(function(error){ 
+                        console.error(error)
+                    })
+                },
+                getGlobalView: function(_datetime){
+                    var _this = this
+
+                    //Reset parameters
+                        _this.globalViewOtherCalls = []
+                        _this.globalViewVehicles = []
+                        _this.globalViewMapUrl = ''
+
+                    //Get data
+                        axios.post('https://query.cityoflewisville.com/v2', {
+                            webservice: "CallsAnalysisGlobalView",
+                            auth_token: localStorage.colAuthToken,
+                            date_received: _datetime
+                        })
+                        .then(function(_results){
+                            _this.globalViewOtherCalls = _results.data.OtherCalls
+                            _this.globalViewVehicles = _results.data.Vehicles
+                            _this.globalViewMapUrl = _results.data.MapUrl[0].Url
+                        })
+                        .catch(function(error){ 
+                            console.error(error)
+                        })
+                },
+                getUrlParam: function(_name){
+                    return decodeURIComponent((new RegExp('[?|&|]' + _name + '=' + '([^&;]+?)(&|#|;|$)').exec(location.search)||[,""])[1].replace(/\+/g, '%20'))||null;
+                },
+                setParamsFromUrl: function(){
+                    var _this = this
+                    var _params = []
+
+                    Object.keys(_this.parameters).forEach(function(k){
+                        var _paramValue = _this.getUrlParam(k)
+                        
+                        if (_paramValue != null){                              
+                            if (_this.parameters[k].type == "multiselect"){
+                                try{_this.parameters[k].value = JSON.parse(_paramValue)}catch(e){}
+                            }else if(_paramValue.toLowerCase() == "true"){
+                                _this.parameters[k].value = true
+                            }else if(_paramValue.toLowerCase() == "false"){
+                                _this.parameters[k].value = true
+                            }else{
+                                _this.parameters[k].value = _paramValue
+                            }
+                        }
+                    })
+                },
+                setUrlParams: function(){
+                    var _this = this                    
+                    var _queryString = []
+                    var _params = []
+                    var _queryString = []
+
+                    Object.keys(_this.parameters).forEach(function(pname){
+                        if (_this.parameters[pname].type == "multiselect"){
+                            if (_this.parameters[pname].value.length > 0){
+                                _queryString.push(pname + "=" + encodeURIComponent(JSON.stringify(_this.parameters[pname].value)))
+                            }
+                        }
+                        if (_this.parameters[pname].type != "multiselect") { 
+                            if (_this.parameters[pname].value != ''){
+                                _queryString.push(pname + '=' + encodeURIComponent(_this.parameters[pname].value))
+                            }
+                        }
+                    })
+
+                    return window.location.protocol + '//' + window.location.host + window.location.pathname + "?" + _queryString.join("&")
+                },
+                resetMultipleChoice(_param){
+                    var _this = this
+                    _this.parameters[_param].value = []
+                },
+                resetFromTo(_paramLo,_paramHi){
+                    var _this = this
+                    _this.parameters[_paramLo].value = ''
+                    _this.parameters[_paramHi].value = ''
+                },
+                resetSingle(_param){
+                    var _this = this
+                    _this.parameters[_param].value = []
+                },
+                resetDateParams(_thisControl,_val){
+                    var _this = this
+                    if (_val == true){
+                        _this.parameters.AC_DateReceivedLo.oldValue = _this.parameters.AC_DateReceivedLo.value
+                        _this.parameters.AC_DateReceivedHi.oldValue = _this.parameters.AC_DateReceivedHi.value
+
+                        _this.parameters.AC_DateReceivedLo.value = ''
+                        _this.parameters.AC_DateReceivedHi.value = ''
+
+                        Object.keys(_this.parameters).forEach(function(k){
+                            if (k.substring(0,19)=="AC_DateReceivedPast" && k != _thisControl){
+                                _this.parameters[k].value = false
+                            }
+                        })
+                        
+                    }else{
+                        _this.parameters.AC_DateReceivedLo.value = _this.parameters.AC_DateReceivedLo.oldValue
+                        _this.parameters.AC_DateReceivedHi.value = _this.parameters.AC_DateReceivedHi.oldValue
+                    }                    
+                },
+                average: function(_fieldName,_decimalPlaces){
+                    var _this = this
+                    var _final = 0
+
+                    
+                    var _values = _this.calls.map(function(c){
+                        return c[_fieldName]
+                    })
+
+                    var _average = function(_array){
+                        return _array.reduce(function (p, c) {
+                            return p + c;
+                        }) / _array.length;
+                    }
+
+                    _final = _average(_values).toFixed(_decimalPlaces || 2)
+                    
+                    return (isNaN(_final) ? '-' : _final)
+                },
+                sortBy: function (key) {
+                    var _this = this                    
+                    _this.sortKey = key
+                    _this.sortOrder = _this.sortOrder * -1                               
+                },
+                highlight: function(_fieldName){
+                    var _this = this
+                    var _score = 0
+                    var _paramNamesSentToServer = Object.keys(_this.cleanParamsForServer()).map(function(k){
+                        return k
+                    })
+
+                    if (_this.schema[_fieldName] && _this.schema[_fieldName].hasOwnProperty("parameters")){
+                        _this.schema[_fieldName].parameters.forEach(function(p){
+                            if (_paramNamesSentToServer.indexOf(p) > -1){
+                                _score += 1
+                            }
+                        })
+                    }
+
+                    return (_score > 0 ? true : false)
+                },
+                parametersArrayFiltered: function(_section){
+                    var _this = this
+                    return _this.parametersArray.filter(function(f){
+                        return f.settings.section == _section
+                    })
+                },
+                right: function(_string,_numberOfCharacters){
+                    return _string.substr(_string.length - _numberOfCharacters)
+                },
+                resetAllParameters: function(){
+                    var _this = this
+                    Object.keys(_this.parameters).forEach(function(p){
+                        if (_this.parameters[p].type == "multiselect"){
+                            _this.parameters[p].value.length = 0
+                        }else{
+                            _this.parameters[p].value = ''
+                        }
+                    })
+
+                    //Set date to be "past 1 month"
+                    _this.parameters.AC_DateReceivedPast1Months.value = true
+                    _this.calls = []
+                },
+                splitCamelCase: function(_string){
+                    return _string.replace(/([A-Z])/g, ' $1')
+                },
+                example1: function(){
+                    var _this = this
+                    _this.resetAllParameters()
+
+                    _this.parameters.AC_DateReceivedPast1Months.value = false
+                    _this.parameters.AC_DateReceivedPast1Years.value = true
+                    _this.parameters.AC_Complaint.value = ['1 Alarm','2 Alarm','3 Alarm']
+              
+                    setTimeout(function(){
+                        _this.exampleMessage = "Parameters are set. Running query..."
+                        _this.runReport()
+                    },1000)                    
+                },
+                example2: function(){
+                    var _this = this
+                    _this.resetAllParameters()
+                    _this.parameters.AC_DateReceivedPast1Months.value = false
+                    _this.parameters.AC_DateReceivedPast1Years.value = true
+                    _this.parameters.AC_PriorityLo.value = 1
+                    _this.parameters.AC_PriorityHi.value = 1
+                    _this.parameters.AC_MinutesHoldingLo.value = 5
+                    _this.parameters.AC_MinutesHoldingHi.value = 1000
+
+                    _this.exampleMessage = "Parameters are set. Running query in 3 seconds"
+
+                    setTimeout(function(){
+                        _this.exampleMessage = "Parameters are set. Running query in 2 seconds"
+                    },1000)
+                    setTimeout(function(){
+                        _this.exampleMessage = "Parameters are set. Running query in 1 seconds"
+                    },2000)
+                    setTimeout(function(){
+                        _this.exampleMessage = "Parameters are set. Running query in 0 seconds"
+                        _this.runReport()
+                    },3000)          
+
+                }
+            },
+            computed:{
+                filteredCalls: function(){
+                    var _this = this
+                    var _sortKey = _this.sortKey
+                    var _order = _this.sortOrder || 1
+
+                    var _calls = _this.calls
+
+                    _calls = _calls.slice().sort(function(a,b){
+                        if (_this.schema[_sortKey]){
+                            switch (_this.schema[_sortKey].type) {
+                                case "integer":
+                                    a = parseInt(a[_sortKey])
+                                    b = parseInt(b[_sortKey])
+                                    break;
+                                case "datetime":
+                                    a = new Date(a[_sortKey])
+                                    b = new Date(b[_sortKey])
+                                    break;
+                                default:
+                                    a = a[_sortKey]
+                                    b = b[_sortKey]
+                            }
+                        }
+                        return (a === b ? 0 : a > b ? 1 : -1) * _order
+                    })
+
+                    return _calls
+                },          
+                paramsPretty: function(){
+                    var _this = this
+                    var _str = ''
+                    var _done = []
+
+                    //Dates
+                        var _dates = Object.keys(_this.cleanParamsForServer()).filter(function(p){
+                            return p.substr(0,10) == 'AC_DateRec'
+                        }).forEach(function(p){
+                            if (_this.parameters[p].value == true) _str = "[Date Received] is within the " + _this.parameters[p].label1 + " ; "      
+                            _done.push(p)                  
+                        })
+                    
+                    //Multiselect
+                        var _multiselect = Object.keys(_this.cleanParamsForServer()).filter(function(p){
+                            return _done.indexOf(p) < 0
+                        })
+                        .filter(function(p){
+                            return _this.parameters[p].type == "multiselect"
+                        })
+                        _multiselect.forEach(function(p){
+                            var pname = p
+                            var _obj = _this.parameters[pname]
+                            _str += "[" + p.replace("AC_","") + "] IN(" + _this.parameters[p].value.join(",") + ") ; "
+                            _done.push(p)
+                        })
+
+                    //Lo / Hi
+                        var _loHi = Object.keys(_this.cleanParamsForServer()).filter(function(p){
+                            return _done.indexOf(p) < 0
+                        })
+                        .filter(function(p){
+                            return _this.parameters[p].loHi == true && p.substr(p.length-2) != 'Hi'
+                        }) 
+                        .forEach(function(p){
+                            _str += "[" + p.replace("AC_","").replace("Lo","") + "] BETWEEN " + _this.parameters[p].value + " AND " + _this.parameters[p.replace("Lo","Hi")].value + " ; "
+                        })
+
+                        Object.keys(_this.cleanParamsForServer()).filter(function(p){
+                            return _this.parameters[p].loHi == true
+                        }).forEach(function(p){
+                            _done.push(p)
+                        })  
+
+                    //Others
+                        var _others = Object.keys(_this.cleanParamsForServer()).filter(function(p){
+                            return _done.indexOf(p) < 0
+                        })
+                        .forEach(function(p){
+                            _str += "[" + p.replace("AC_","") + "] = " + _this.parameters[p].value + " ; "
+                        })
+                        
+                    return _str
+                },
+                columns: function(){
+                    var _this = this
+
+                    var _cols = Object.keys(_this.schema)
+                    .filter(function(k){
+                        return _this.schema[k].visible != false
+                    })
+                    .map(function(k){
+                        return {
+                            name: k, 
+                            schema: _this.schema[k]
+                        }
+                    })
+
+                    return _cols
+                },
+                columnHeadGroups: function(){
+                    var _this = this
+
+                    var _groups = Object.keys(_this.schema)
+                    .filter(function(k){
+                        return [k] != 'Id'
+                    })
+                    .map(function(k){
+                        return {name: _this.schema[k].thGroup,columns: 1}
+                    })
+                    
+                    var _groupsRolledUp = _groups.reduce(function(res,obj){
+                        if (!(obj.name in res))
+                            res.__array.push(res[obj.name] = obj);
+                        else {
+                            res[obj.name].columns += obj.columns;
+                        }
+                        return res;
+                    }, {__array:[]}).__array
+                    
+                    return _groupsRolledUp
+                },
+                paramSections: function(){
+                    var _this = this
+                    var _sections = []
+                    Object.keys(_this.sections).forEach(function(k){
+                        _sections.push( {name: k, title1: _this.sections[k].title1,title2: _this.sections[k].title2} )
+                    })
+                    return _sections
+                },
+                parametersArray: function(){
+                    //EXCLUDES loHi "Hi" parameters
+                    var _this = this
+                    var _params = []
+                    Object.keys(_this.parameters)
+                    .forEach(function(k){
+                        _params.push( {name: k, settings: _this.parameters[k]} )
+                    })
+                    return _params.filter(function(k){
+                        return k.name.substr(k.name.length-2) != 'Hi'
+                    })
+                },
+                points: function(){
+                    var _this = this                    
+                    return _this.calls
+                },
+                mapServices: function(){
+                    var _this = this
+
+                    //Array of parameter-names where the parameter has the property "mapService"
+                        var _array = Object.keys(_this.parameters)
+                            .filter(function(_k){
+                                return _this.parameters[_k].hasOwnProperty("mapService") && _this.parameters[_k].mapService.length > 0
+                            })
+                            .map(function(_p){
+                                return {
+                                    id: _p,
+                                    label: _p.replace("AC_",""),
+                                    url: _this.parameters[_p].mapService
+                                }
+                            })
+
+                    //Set mapServiceActive (one-way --> reactivity)
+                        _array.forEach(function(_a){
+                            var _id = _a.id
+                            var _param = _this.parameters[_id]
+                            
+                            if (_param.type == "multiselect"){
+                                _this.parameters[_id].mapServiceActive = (_param.value.length > 0 ? true : false)
+                            }else if (_param.type == "boolean"){
+                                _this.parameters[_id].mapServiceActive = _param.value
+                            }else{
+                                _this.parameters[_id].mapServiceActive = (_param.value.length > 0 ? true : false)
+                            }
+                        })
+
+                    return _array
+                },
+                oppositeCallsWhereExplanation: function(){
+                    var _this = this
+                    
+                    var _oppositeParamName = _this.oppositeParameterName
+                    var _originalParamObj = _this.parameters[_oppositeParamName]
+                    var _paramValuesRaw = JSON.parse(_this.cleanParamsForServer()[_originalParamObj.oppositeParameter.name])
+                    
+                    var _paramValues = _paramValuesRaw.map(function(_p){
+                        return _p.value
+                    }).join(",")
+                    
+                    return "Opposite Parameter's Query: [" + _oppositeParamName.replace("AC_","") + "] IN(" + _paramValues + ")"
+                },
+                oppositeCallsPercent: function(){
+                    var _this = this
+                    var _value = (_this.oppositeCalls.length > 0 ? (_this.calls.length / (_this.calls.length + _this.oppositeCalls.length)) : 0)*100
+                    return Math.round(_value,1) + "%"
+                }
+            }
+        })
+
+        document.addEventListener('DOMContentLoaded', function(){
+            app.init()
+        })
+    </script>
+
+    <script>        
+        var _map = require([
+            "esri/Map",
+            "esri/views/MapView",     
+            "esri/layers/MapImageLayer",
+            "esri/layers/FeatureLayer",
+            "esri/geometry/Point"
+        ], function(
+            Map, MapView, MapImageLayer, FeatureLayer, Point
+        ) {
+
+            //-------------------------------------------------------
+            //Master Map object
+            //-------------------------------------------------------            
+                var _cityLimitsLayer = new MapImageLayer({
+                    id: "citylimits",
+                    url: "https://adaptergis.cityoflewisville.com/arcgis/rest/services/GEM/GEM_LewisvilleCityLimits_Line/MapServer",
+                    title: "City Limits"
+                })
+
+                var map = new Map({
+                    basemap: "hybrid",
+                    layers: [_cityLimitsLayer]
+                });
+
+                var view = new MapView({               
+                    container: "viewDiv",
+                    map: map,
+                    center: [-96.9571323598633,33.04874516100256],
+                    zoom: 13
+                });
+
+                view.watch("updating",function(_event){   
+                    app.mapLayerIsLoading = _event
+                })
+
+            //-------------------------------------------------------
+            //Master Data object
+            //-------------------------------------------------------
+                var Data = {
+                    points: [],
+                    layers: {},
+                    fields: []
+                } 
+
+            //-------------------------------------------------------
+            //Renderers
+            //https://developers.arcgis.com/javascript/latest/api-reference/esri-renderers-Renderer.html
+            //-------------------------------------------------------
+            var _rendererHeatmap = {
+                type: "heatmap",
+                colorStops: [
+                    { color: "rgba(63, 40, 102, 0)", ratio: 0 },
+                    { color: "#472b77", ratio: 0.083 },
+                    { color: "#4e2d87", ratio: 0.166 },
+                    { color: "#563098", ratio: 0.249 },
+                    { color: "#5d32a8", ratio: 0.332 },
+                    { color: "#6735be", ratio: 0.415 },
+                    { color: "#7139d4", ratio: 0.498 },
+                    { color: "#7b3ce9", ratio: 0.581 },
+                    { color: "#853fff", ratio: 0.664 },
+                    { color: "#a46fbf", ratio: 0.747 },
+                    { color: "#c29f80", ratio: 0.830 },
+                    { color: "#e0cf40", ratio: 0.913 },
+                    { color: "#ffff00", ratio: 1 }
+                ],
+                maxPixelIntensity: 25,
+                minPixelIntensity: 0
+            };
+
+            var _rendererCircles = {
+                type: "simple",
+                symbol: {
+                    type: "simple-marker",
+                    style: "circle",
+                    size: 20,
+                    color: [211, 255, 0, 0],
+                    outline: {
+                        width: 1,
+                        color: "#FF0055",
+                        style: "solid"
+                    }
+                },
+                visualVariables: [{
+                    type: "size",
+                    field: "LocationCount",    //LocationCount
+                    valueUnit: "unknown",
+                    minDataValue: 1,
+                    maxDataValue: 1,                   
+                    minSize: {
+                        type: "size",
+                        valueExpression: "$view.scale",
+                        stops: [
+                            { value: 1128, size: 12 },
+                            { value: 36111, size: 12 },
+                            { value: 9244649, size: 6 },
+                            { value: 73957191, size: 4 },
+                            { value: 591657528, size: 2 }
+                        ]
+                    },                   
+                    maxSize: {
+                        type: "size",
+                        valueExpression: "$view.scale",
+                        stops: [
+                            { value: 1128, size: 80 },
+                            { value: 36111, size: 60 },
+                            { value: 9244649, size: 50 },
+                            { value: 73957191, size: 50 },
+                            { value: 591657528, size: 25 }
+                        ]
+                    }
+                }]
+            };
+            
+            //-------------------------------------------------------
+            //Create an Array of Graphics from an Array of Points
+            //-------------------------------------------------------
+                function createGraphics(_calls) {
+
+                    var _graphics = _calls.map(function(_call,i){
+                        
+                        var _attributes = {}
+
+                        Data.fields.forEach(function(_f){
+                            _attributes[_f.name] = _call[_f.dbName]
+                        })
+
+                        return {
+                            geometry: new Point({
+                                x: _call.lng,
+                                y: _call.lat
+                            }),
+                            attributes:_attributes,
+                            symbol: {
+                                type: "simple-marker",
+                                color: [226, 119, 40],
+                                outline: { 
+                                    color: [255, 255, 255],
+                                    width: 2
+                                }
+                            }
+                        }
+                    })
+
+                    return _graphics
+                }
+
+            //-------------------------------------------------------
+            //Create a Feature Layer from an array of Graphics
+            //-------------------------------------------------------
+                function createFeatureLayer(_graphics,_renderer) {
+                
+                    //Set maxDataValue (max LocationCount)
+                        _rendererCircles.visualVariables[0].maxDataValue = Math.max.apply(null,Data.points.map(function(p){
+                            return p.LocationCount
+                        }))
+
+                    //Map fieds to popup template
+                        var _popupTemplate = {
+                            title:"{complaint}",
+                            content:[{
+                                type:"fields"
+                            }]
+                        } 
+                        _popupTemplate.content[0].fieldInfos = Data.fields.map(function(_f){
+                            return {
+                                fieldName:_f.name,
+                                label:_f.alias,
+                                visible:true
+                            }
+                        })
+
+                    //Feature layer
+                        _layer = new FeatureLayer({
+                            source: _graphics,
+                            fields: Data.fields,
+                            objectIdField: "ObjectID", // This must be defined when creating a layer from Graphics
+                            renderer: _renderer,
+                            popupTemplate: _popupTemplate,
+
+                            labelingInfo: [{                        
+                                labelPlacement: "above-center", // When using callouts on labels, "above-center" is the only allowed position
+                                labelExpressionInfo: {
+                                    value: "{LocationCount}"
+                                },
+                                symbol: {
+                                    type: "text", // autocasts as new TextSymbol()
+                                    color: "red",
+                                    haloColor: "white",
+                                    haloSize: "3px",                                    
+                                    verticalOffset: {
+                                        screenLength: 150,
+                                        maxWorldLength: 2000,
+                                        minWorldLength: 30
+                                    },
+                                    callout: {
+                                        type: "line", // autocasts as new LineCallout3D()
+                                        size: 0.5,
+                                        color: [0, 0, 0],
+                                        border: {
+                                            color: [255, 255, 255, 0.7]
+                                        }
+                                    }
+                                }
+                            }]
+                        });
+
+                    return _layer;
+                }
+
+            //-------------------------------------------------------
+            //Poll Vue object (2 secs) for new calls (poor-man's reactivity)
+            //-------------------------------------------------------
+                setInterval(function(){
+
+                    if (Data.points.length != app.points.length){
+                        
+                        //Local copy of points is set to value in Vue
+                            Data.points = app.points.map(function(_p){
+                                return _p
+                            })
+
+                        //Promise start-point
+                            function getPoints() {
+                                var _results = new Promise(function(resolve, reject) {
+                                    resolve(Data.points)    // Data.points                
+                                })
+                                return _results
+                            }
+
+                        //Create Data.fields from app.schema
+                            Data.fields = Object.keys(app.schema)
+                            .filter(function(_k){
+                                return _k != 'Id'
+                            })
+                            .map(function(_k){
+                                return {
+                                    name: _k,
+                                    alias: app.schema[_k].th,
+                                    type: (app.schema[_k].type == "integer" ? "double" : (app.schema[_k].type == "decimal" ? "double" : "string")),
+                                    dbName: _k
+                                }
+                            })
+                            
+                            Data.fields.push({
+                                name: 'Units',
+                                alias: 'Units',
+                                type: "string",
+                                dbName: 'Units'
+                            })
+                            console.log(Data.fields)
+                        
+                        //Remove existing layers
+                            Object.keys(Data.layers).forEach(function(_lyr){
+                                map.layers.remove(Data.layers[_lyr])
+                            })
+
+                        //Heatmap
+                            getPoints()
+                                .then(createGraphics)
+                                .then(function(_graphics){
+                                    return createFeatureLayer(_graphics,_rendererHeatmap)
+                                })
+                                .then(function(_layer){
+                                    _layer.popupEnabled = false     //disable popups on 1 of the 2 layers to prevent duplicate records
+                                    Data.layers.layerHeatmap = _layer
+                                    map.add(_layer)
+                                })
+
+                        //Circles                        
+                            getPoints()
+                                .then(createGraphics)
+                                .then(function(_graphics){
+                                    return createFeatureLayer(_graphics,_rendererCircles)
+                                })
+                                .then(function(_layer){
+                                    Data.layers.layerCircles = _layer
+                                    map.add(_layer)
+                                })
+                            
+                        //Are there any web services (layers) to turn on?
+                            Object.keys(app.cleanParamsForServer()).forEach(function(p){
+                                if (app.parameters[p].hasOwnProperty("mapService") ){                            
+                                    var _layer = new MapImageLayer({
+                                        id: "xyz",
+                                        url: app.parameters[p].mapService,
+                                        opacity: 0.6
+                                    })
+                                    Data.layers["mapService_" + p] = _layer
+                                    map.add(_layer)
+                                }
+                            })
+                    }
+                },2000)
+        });
+        
+    </script>
+    
+</body>
+</html>
